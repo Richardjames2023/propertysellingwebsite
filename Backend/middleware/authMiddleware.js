@@ -1,43 +1,33 @@
-import jwt from 'jsonwebtoken';
 
-const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ message: 'Authorization denied' });
-  }
+import jwt from 'jsonwebtoken';
+import User from '../models/user.js';
+
+const authenticateToken = async (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'No token provided' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     req.user = decoded;
+
+    const user = await User.findByPk(decoded.id);
+    if (!user) return res.status(401).json({ message: 'User not found' });
+
     next();
   } catch (error) {
-    return res.status(401).json({ message: 'Token is not valid' });
+    console.error('Token verification error:', error);
+    res.status(403).json({ message: 'Invalid token' });
   }
 };
 
+const authorizeAdmin = async (req, res, next) => {
+  const user = await User.findByPk(req.user.id);
+  if (user && user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Access denied. Admins only.' });
+  }
+};
 
-
-// const verifyToken = (req, res, next) => {
-//   try {
-//     const authHeader = req.headers['authorization'];
-//     if (!authHeader) {
-//       return res.status(403).json({ message: "No token provided" });
-//     }
-
-//     const token = authHeader.split(' ')[1];
-//     if (!token) {
-//       return res.status(403).json({ message: "No token provided" });
-//     }
-
-//     // Verify token
-//     const decoded = jwt.verify(token, process.env.JWT_KEY);
-//     req.userId = decoded.id;
-//     next();
-//   } catch (err) {
-//     return res.status(401).json({ message: "Unauthorized access", error: err.message });
-//   }
-// };
-
-
-export default authMiddleware
+export default { authenticateToken, authorizeAdmin };
 

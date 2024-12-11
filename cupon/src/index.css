@@ -30,3 +30,27 @@ body {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
 }
 
+/* user cart print print preview */
+/* Hide elements when printing */
+@media print {
+  .print-hidden {
+    display: none;
+  }
+}
+
+/* Tooltip styling */
+.tooltip-container {
+  position: relative;
+}
+
+.tooltip-text {
+  display: none;
+  position: absolute;
+  top: -100%;
+  right: 0;
+  z-index: 10;
+}
+
+.tooltip-container:hover .tooltip-text {
+  display: block;
+}

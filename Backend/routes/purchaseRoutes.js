@@ -1,12 +1,12 @@
 import express from'express';
-import PurchaseControllers from '../purcaseControllers.js';
+import PurchaseControllers from '../controllers/purchaseControllers.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Protected route to access Discount
-router.get('/createPurchase', authMiddleware, PurchaseControllers.createPurchase);
-router.get('/api/getPurchaseById', authMiddleware, PurchaseCodeControllers.getPurchaseById);
-router.get('/ getUserPurchasest', authMiddleware, PurchaseControllers.getUserPurchases);
+router.post('/createPurchase', PurchaseControllers.createPurchase);
+//router.post('/api/getPurchaseById', authMiddleware, PurchaseCodeControllers.getPurchaseById);
+router.get('/getAllPurchases', PurchaseControllers.getAllPurchases);
 
 export default router;

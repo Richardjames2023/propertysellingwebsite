@@ -1,0 +1,1007 @@
+this is my sequelize database schema:
+
+User.hasMany(Checkout);
+Checkout.belongsTo(User);
+
+Property.hasMany(Checkout);
+Checkout.belongsTo(Property);
+
+Checkout.hasOne(Purchase);
+Purchase.belongsTo(Checkout);
+
+export {
+    User,
+    Property,
+    Purchase,
+};
+
+
+import { DataTypes } from 'sequelize';
+import db from '../config/db.js';
+
+const User = db.define('User', {
+  first_name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  last_name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    // unique: true,
+  },
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  refreshToken: DataTypes.STRING,
+},{
+  tableName: 'users', // optional, defines the table name
+  timestamps: false, // optional, disables `createdAt` and `updatedAt` fields
+});
+
+export default User;
+
+// models/Property.js
+import { DataTypes } from 'sequelize';
+import db from '../config/db.js';
+
+const Property = db.define('Property', {
+  name: { type: DataTypes.STRING, allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  location: { type: DataTypes.STRING, allowNull: false },
+  price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+  quantity: {type: DataTypes.INTEGER, allowNull: false, defaultValue: 1, }, // Default to 1 if there’s a minimum quantity
+  available: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true, }, // Property is available by default
+  imageUrl: { type: DataTypes.STRING, allowNull: true },
+  createdAt: {type: DataTypes.DATE, defaultValue: DataTypes.NOW,},
+  updatedAt: {type: DataTypes.DATE, defaultValue: DataTypes.NOW,}
+}, {
+  tableName: 'properties',
+  timestamps: true,
+});
+
+export default Property;
+
+import { DataTypes } from 'sequelize';
+import db from '../config/db.js';
+import users from '../models/user.js'
+import property from '../models/Property.js'
+
+const Checkout = db.define('Checkout', {
+    checkoutId: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        references: {
+            model: users,
+            key: 'userId'   
+
+        }
+    },
+    propertyId: {
+        type: DataTypes.INTEGER,
+        references: {
+            model: property,
+            key: 'propertyId'
+        }
+    },
+    quantity: DataTypes.INTEGER,
+    totalPrice: DataTypes.DECIMAL,
+    discountApplied: DataTypes.DECIMAL,
+    timestamp: DataTypes.DATE
+}, {
+    tableName: 'checkout', // optional, defines the table name
+    timestamps: false, // optional, disables `createdAt` and `updatedAt` fields
+  });
+export default Checkout
+
+
+
+const Purchase = db.define('Purchase', {
+    purchaseId: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    checkoutId: {
+        type: DataTypes.INTEGER,
+        references: {
+            model: Checkout,
+            key: 'checkoutId'
+        }
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    price: {
+        type: DataTypes.FLOAT,
+        allowNull: false
+    },
+    quantity: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    discount: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    paymentStatus: {
+        type: DataTypes.STRING,
+        defaultValue: 'pending'
+    },
+    transactionId: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    receiptCode: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    timestamp: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW
+    }
+},{
+    tableName: 'purchase', // optional, defines the table name
+    timestamps: false, // optional, disables `createdAt` and `updatedAt` fields
+  });
+
+export default Purchase;
+
+In my frontend, I want to save the property, discount percentage, total price after discount and the user who owns the cart items to the purchase table.
+
+how do I go about it? if u need more context, let me know
+
+this is my user model,
+import { DataTypes } from 'sequelize';
+import db from '../config/db.js';
+
+const User = db.define('User', {
+  first_name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  last_name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+  },
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  refreshToken: DataTypes.STRING,
+},{
+  tableName: 'users', // optional, defines the table name
+  timestamps: false, // optional, disables `createdAt` and `updatedAt` fields
+});
+
+export default User;
+
+and this is part of the project too,
+
+import db from '../config/db.js';
+import bcrypt from 'bcryptjs';
+//import User from "../models/user.js"
+
+const User = {
+  createUser: async (first_name, last_name, email, phone, password, refreshToken) => {
+    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS));
+    const sql = 'INSERT INTO users (first_name, last_name, email, phone, password) VALUES (?, ?, ?, ?, ?, ?)';
+    return db.query(sql, [first_name, last_name, email, phone, hashedPassword, refreshToken]);
+  },
+
+  // findUserByEmail: (email) => {
+  //   const sql = 'SELECT * FROM users WHERE email = ?';
+  //   return db.query(sql, [email]); // Make sure db.query supports `?` placeholders
+  // },
+  findUserByEmail: (email) => {
+    const sql = 'SELECT * FROM users WHERE email = ?';
+    return db.execute(sql, [email]); // Use `execute` instead of `query` if needed
+  }
+  // findUserByEmail: (email) => {
+  //   const sql = `SELECT * FROM users WHERE email = '${email}'`;
+  //   return db.query(sql); // Do not use this in production due to SQL injection risk
+  // }
+};
+
+export default User;
+
+I keep getting this error "Executing (default): INSERT INTO `users` (`id`,`first_name`,`last_name`,`email`,`phone`,`password`) VALUES (DEFAULT,?,?,?,?,?);
+Error registering user: AssertionError [ERR_ASSERTION]: Missing where attribute in the options parameter" how do I go about it to avoid this error
+
+
+this is my frontend code " const generateUniqueCode = () => uuidv4(); // Use UUID for unique transaction and receipt codes
+
+  const handleCheckout = async () => {
+    // Generate unique receiptCode and transactionCode
+    // const receiptCode = generateUniqueCode('REC');
+    // const transactionCode = generateUniqueCode('TXN');
+
+    const transactionId = generateUniqueCode();
+    const receiptCode = generateUniqueCode();
+
+    try {
+      // Send cart items, total, and generated codes to the backend
+      const response = await axios.post('http://localhost:4001/api/createPurchase', {
+        items: cartItems,
+        totalAmount: cartTotal,
+        transactionId,
+        receiptCode
+      });
+
+      if (response.status === 200) {
+        // Clear local storage and notify user on successful checkout
+        localStorage.setItem('purchasedCart', JSON.stringify(cartItems));
+        localStorage.setItem('totalAmount', cartTotal);
+        localStorage.removeItem('cartItems');
+        localStorage.removeItem('cartTotal');
+        alert(`Your cart has been successfully checked out! Receipt: ${receiptCode}`);
+      }
+    } catch (error) {
+      console.error('Error during checkout:', error);
+      alert('There was an issue with your checkout. Please try again.');
+    }
+  };
+
+  return (
+    <div className="p-4 max-w-3xl mx-auto">
+      <h2 className="text-3xl font-bold mb-4">Your Cart</h2>
+      {cartItems.map((item) => (
+        <div key={item.id} className="flex justify-between items-center mb-4 border-b pb-2">
+          <div>
+            <p className="font-semibold">{item.name}</p>
+            <p>₦ {Number(item.price).toFixed(2)} x {item.quantity}</p>
+            {item.discount && (
+              <p className="text-sm text-gray-500">Discount: {item.discount}%</p>
+            )}
+          </div>
+          <p>
+            Subtotal: ₦ {(item.price * item.quantity * (1 - (item.discount || 0) / 100)).toFixed(2)}
+          </p>
+        </div>
+      ))}
+      <div className="border-t pt-4 mt-4 text-lg font-bold">
+        Total: ₦ {cartTotal.toFixed(2)}
+      </div>
+      <button
+        onClick={handleCheckout}
+        className="w-full bg-green-500 text-white py-2 mt-4 rounded hover:bg-green-600 transition"
+      >
+        Checkout
+      </button>
+    </div>
+  );
+};
+
+export default CartPage;"
+
+this is my route "router.post('/createPurchase', PurchaseControllers.createPurchase);"
+
+
+and the is my backend code "// Create a new purchase
+const createPurchase = async (req, res) => {
+    const { userId, propertyId, discountCodeId, finalPrice, name, price, quantity, discount } = req.body;
+
+    try {
+        // Validate input
+        if (!userId || !propertyId || finalPrice === undefined || !name || price === undefined || !quantity) {
+            return res.status(400).json({ error: 'User ID, Property ID, Final Price, Name, Price, and Quantity are required' });
+        }
+
+        // Check if user exists
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Check if property exists
+        const property = await Property.findByPk(propertyId);
+        if (!property) {
+            return res.status(404).json({ error: 'Property not found' });
+        }
+
+        // Check if discount code exists (if provided)
+        if (discountCodeId) {
+            const discountCode = await DiscountCode.findByPk(discountCodeId);
+            if (!discountCode) {
+                return res.status(404).json({ error: 'Discount code not found' });
+            }
+        }
+
+        // Create a new purchase entry
+        const purchase = await Purchase.create({
+            userId,
+            checkoutId: null, // Set or modify if needed in the final implementation
+            paymentStatus: 'pending',
+            transactionId: null, // Set based on payment processing if required
+            receiptCode: null, // Generate a receipt code if necessary
+            timestamp: new Date(),
+            name,
+            price,
+            quantity,
+            discount,
+            finalPrice
+        });
+
+        return res.status(201).json({ message: 'Purchase created successfully', purchase });
+    } catch (error) {
+        console.error('Error creating purchase:', error);
+        return res.status(500).json({ message: 'Error creating purchase', error: error.message });
+    }
+};"
+
+why am I getting "404 Not Found" when I make a request to the backend from the frontend. if you need more info you let me know, so I can probvide 
+
+userId, name, price, quantity, discount, paymentStatus, transactionId,receiptCode
+
+I want you to add this coliumns to the table
+
+"name, description, location, price, quantity, available, imageUrl"
+
+
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const PropertyTable = () => {
+  const [properties, setProperties] = useState([]);
+  const [newProperty, setNewProperty] = useState({ title: '', description: '', price: '' });
+  const [editProperty, setEditProperty] = useState(null);
+
+  useEffect(() => {
+    axios.get('/api/properties').then((response) => setProperties(response.data));
+  }, []);
+
+  const handleAddProperty = () => {
+    axios.post('/api/properties', newProperty).then((response) => {
+      setProperties([...properties, response.data]);
+      setNewProperty({ title: '', description: '', price: '' });
+    });
+  };
+
+  const handleUpdateProperty = (id) => {
+    axios.put(`/api/properties/${id}`, editProperty).then((response) => {
+      const updatedProperties = properties.map((property) =>
+        property.id === id ? response.data : property
+      );
+      setProperties(updatedProperties);
+      setEditProperty(null);
+    });
+  };
+
+  const handleDeleteProperty = (id) => {
+    axios.delete(`/api/properties/${id}`).then(() => {
+      setProperties(properties.filter((property) => property.id !== id));
+    });
+  };
+
+  return (
+    <div>
+      <h2 className="text-3xl font-semibold mb-6">Manage Properties</h2>
+
+      {/* Add Property Form */}
+      <div className="mb-6">
+        <input
+          type="text"
+          value={newProperty.title}
+          onChange={(e) => setNewProperty({ ...newProperty, title: e.target.value })}
+          placeholder="Property Title"
+          className="p-2 border rounded mr-4"
+        />
+        <input
+          type="text"
+          value={newProperty.description}
+          onChange={(e) => setNewProperty({ ...newProperty, description: e.target.value })}
+          placeholder="Property Description"
+          className="p-2 border rounded mr-4"
+        />
+        <input
+          type="text"
+          value={newProperty.price}
+          onChange={(e) => setNewProperty({ ...newProperty, price: e.target.value })}
+          placeholder="Price"
+          className="p-2 border rounded"
+        />
+        <button onClick={handleAddProperty} className="bg-green-500 text-white p-2 rounded">Add Property</button>
+      </div>
+
+      {/* Properties Table */}
+      <table className="min-w-full table-auto">
+        <thead>
+          <tr>
+            <th className="px-4 py-2 border">Title</th>
+            <th className="px-4 py-2 border">Description</th>
+            <th className="px-4 py-2 border">Price</th>
+            <th className="px-4 py-2 border">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* {properties.map((property) => (
+            <tr key={property.id}>
+              <td className="px-4 py-2 border">{property.title}</td>
+              <td className="px-4 py-2 border">{property.description}</td>
+              <td className="px-4 py-2 border">${property.price}</td>
+              <td className="px-4 py-2 border">
+                <button
+                  onClick={() => setEditProperty(property)}
+                  className="bg-yellow-500 text-white p-2 rounded mr-2"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteProperty(property.id)}
+                  className="bg-red-500 text-white p-2 rounded"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))} */}
+        </tbody>
+      </table>
+
+      {/* Edit Property Modal */}
+      {editProperty && (
+        <div className="fixed inset-0 bg-gray-700 bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded">
+            <input
+              type="text"
+              value={editProperty.title}
+              onChange={(e) => setEditProperty({ ...editProperty, title: e.target.value })}
+              className="p-2 border rounded mb-4"
+            />
+            <textarea
+              value={editProperty.description}
+              onChange={(e) => setEditProperty({ ...editProperty, description: e.target.value })}
+              className="p-2 border rounded mb-4"
+            />
+            <input
+              type="text"
+              value={editProperty.price}
+              onChange={(e) => setEditProperty({ ...editProperty, price: e.target.value })}
+              className="p-2 border rounded mb-4"
+            />
+            <button
+              onClick={() => handleUpdateProperty(editProperty.id)}
+              className="bg-blue-500 text-white p-2 rounded mr-4"
+            >
+              Save Changes
+            </button>
+            <button onClick={() => setEditProperty(null)} className="bg-gray-500 text-white p-2 rounded">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PropertyTable;
+
+
+this is my create property controller "// Create a new property
+const createProperty = async (req, res) => {
+  const { name, price, quantity, description, location, available } = req.body;
+
+  try {
+    const property = await Property.create({ name, price, quantity, description, location, imageUrl, available });
+    res.status(201).json({ message: 'Property created successfully', property });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating property', error });
+  }
+};
+
+// Get all properties
+const getProperties = async (req, res) => {
+  try {
+    const properties = await Property.findAll();
+    res.status(200).json(properties);
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    res.status(500).json({ message: 'Error fetching properties', error });
+  }
+};"   and the is the route with image "router.post('/properties', upload.single('image'), async (req, res) => {
+  const { name, description, location, price, quantity, available } = req.body;
+  const imageUrl = `/images/${req.file.filename}`; // Save only the path
+
+  // Save property in the database with the image URL
+  const newProperty = await Property.create({
+    name,
+    description,
+    location,
+    price: parseFloat(price), // Ensure price is saved as a floating point
+    quantity,
+    available,
+    imageUrl
+  });
+
+  res.json(newProperty);
+});"                I need you to update my controller, if you need more info let me know please 
+
+
+am still face the challenge of not been able to redirect a user  to the right route if he login or register, I will like you to check the code for me
+my useAuth "// src/hooks/useAuth.js
+import { useState, useEffect } from 'react';
+
+export function useAuth() {
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Fetch user from local storage or API
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    if (storedUser) {
+      setUser(storedUser);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  return { user, isAuthenticated };
+}"      and my  middleware "import jwt from 'jsonwebtoken';
+import User from '../models/user.js';
+
+const authenticateToken = async (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'No token provided' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    req.user = decoded;
+
+    const user = await User.findByPk(decoded.id);
+    if (!user) return res.status(401).json({ message: 'User not found' });
+
+    next();
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(403).json({ message: 'Invalid token' });
+  }
+};
+
+const authorizeAdmin = async (req, res, next) => {
+  const user = await User.findByPk(req.user.id);
+  if (user && user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Access denied. Admins only.' });
+  }
+};
+
+export default { authenticateToken, authorizeAdmin };"  and my controllers "
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import User from '../models/User.js'; // Adjust path if needed
+
+// Generate Access and Refresh Tokens
+// const generateAccessToken = (user) => {
+//     return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+// };
+
+// const generateRefreshToken = (user) => {
+//     return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+// };
+
+// const register = async (req, res) => { 
+//   const { email, password, first_name, last_name, phone } = req.body;
+
+//   try {
+//       // Check if user already exists
+//       const existingUser = await User.findOne({ where: { email } });
+
+//       if (existingUser) {
+//           // If email exists, return a message indicating they should log in
+//           return res.status(400).json({
+//               message: 'Email already exists, please log in.',
+//           });
+//       }
+
+//       // Hash the password before saving
+//       const hashedPassword = await bcrypt.hash(password, 10);
+
+//       // Create a new user with refreshToken directly
+//       const newUser = await User.create({
+//           email,
+//           password: hashedPassword,
+//           first_name,
+//           last_name,
+//           phone,
+//       });
+
+      
+//       // Generate refresh token
+//       const refreshToken = generateRefreshToken({ id: newUser.id });
+
+//       //update the users record with the refresh token
+//       await newUser.update({refreshToken});
+
+//       // Generate access token
+//       const accessToken = generateAccessToken({ id: newUser.id });
+
+//       // Send success response, excluding the password
+//       res.status(201).json({
+//           message: 'User registered successfully',
+//           user: {
+//               id: newUser.id,
+//               email: newUser.email,
+//               first_name: newUser.first_name,
+//               last_name: newUser.last_name,
+//               phone: newUser.phone,
+//           },
+//           refreshToken,
+//           accessToken
+//       });
+//   } catch (error) {
+//       console.error('Error registering user:', error);
+//       res.status(500).json({
+//           message: 'Registration error',
+//           error: error.message,
+//       });
+//   }
+// };
+
+// Login User
+// const login = async (req, res) => {
+//     const { email, password } = req.body;
+
+//     try {
+//         const user = await User.findOne({ where: { email } });
+//         if (!user || !bcrypt.compareSync(password, user.password)) {
+//             return res.status(401).json({ message: 'Invalid credentials' });
+//         }
+
+//         const accessToken = generateAccessToken({ id: user.id });
+//         const refreshToken = generateRefreshToken({ id: user.id });
+
+//         await user.update({ refreshToken }); // Save refresh token in DB
+
+//         // Determine the dashboard URL based on the user's role
+//         const redirectUrl = user.role === 'admin' ? '/admin-dashboard' : '/dashboard';
+
+//         // Return tokens, user data, and redirect URL in response
+//         res.status(200).json({
+//             message: 'User login successful',
+//             accessToken,
+//             refreshToken,
+//             user,
+//             redirectUrl,
+//         });
+//     } catch (error) {
+//         console.error('Login error:', error);
+//         res.status(500).json({ message: 'Login error', error: error.message });
+//     }
+// };
+
+const login = async (req, res) => {
+    const { email, password } = req.body;
+  
+    try {
+      const user = await User.findOne({ where: { email } });
+      if (!user || !bcrypt.compareSync(password, user.password)) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+  
+      const accessToken = generateAccessToken({ id: user.id });
+      const refreshToken = generateRefreshToken({ id: user.id });
+  
+      await user.update({ refreshToken });
+  
+      const redirectUrl = user.role === 'admin' ? '/admin-dashboard' : '/dashboard';
+  
+      res.status(200).json({
+        message: 'User login successful',
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          role: user.role,
+        },
+        redirectUrl,
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Login error', error: error.message });
+    }
+  };
+
+// Refresh Token
+const refreshToken = async (req, res) => {
+    const { token } = req.body;
+
+    if (!token) return res.sendStatus(401);
+
+    try {
+        const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+        const user = await User.findByPk(decoded.id);
+
+        if (!user || user.refreshToken !== token) {
+            return res.status(403).json({ message: 'Invalid refresh token' });
+        }
+
+        const newAccessToken = generateAccessToken({ id: user.id });
+        res.json({ accessToken: newAccessToken });
+    } catch (error) {
+        console.error('Refresh token error:', error);
+        res.status(403).json({ message: 'Invalid refresh token' });
+    }
+};
+
+// Logout (invalidate refresh token)
+const logout = (req, res) => {
+  const { refreshToken } = req.body;
+
+  // Remove refresh token from the refreshTokens object
+  delete refreshToken[refreshToken];
+
+  res.status(204).send(); // No Content
+};
+
+// Get All Users
+const getAllUsers = async (req, res) => {
+    console.log('users');
+    try {
+      // Retrieve all users, excluding the password field
+      const users = await User.findAll({
+        attributes: ['id', 'email', 'first_name', 'last_name', 'phone'], // Exclude 'password'
+      });
+      console.log(users);
+      res.status(200).json(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ message: 'Error fetching users', error: error.message });
+    }
+  };
+
+  const assignAdminRole = async (req, res) => {
+    const { userId } = req.body; // The ID of the user to make an admin
+    const loggedInUserId = req.user.id; // ID of the currently logged-in user
+
+    try {
+        // Verify that the logged-in user is a superadmin
+        const loggedInUser = await User.findByPk(loggedInUserId);
+        if (!loggedInUser || loggedInUser.role !== 'superadmin') {
+            return res.status(403).json({ message: 'Only a super admin can assign admin roles' });
+        }
+
+        // Find the target user and update their role
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.role = 'admin';
+        await user.save();
+
+        return res.status(200).json({ message: 'User has been granted admin rights' });
+    } catch (error) {
+        console.error('Assign admin role error:', error);
+        return res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// dashboardController.js
+const userDashboard = (req, res) => {
+    // Fetch user-specific data if needed
+    res.json({
+        message: `Welcome to your user dashboard, ${req.user.first_name}`,
+        data: {
+            // You can add more user-specific data here
+        }
+    });
+};
+
+const adminDashboard = (req, res) => {
+    // Fetch admin-specific data if needed
+    res.json({
+        message: `Welcome to the admin dashboard, ${req.user.first_name}`,
+        data: {
+            // You can add more admin-specific data here, e.g., statistics, user lists, etc.
+        }
+    });
+};
+
+
+
+const generateAccessToken = (user) => {
+  return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+};
+
+const generateRefreshToken = (user) => {
+  return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+};
+
+const register = async (req, res) => {
+  const { email, password, first_name, last_name, phone } = req.body;
+
+  try {
+    const existingUser = await User.findOne({ where: { email } });
+
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already exists, please log in.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await User.create({
+      email,
+      password: hashedPassword,
+      first_name,
+      last_name,
+      phone,
+    });
+
+    const refreshToken = generateRefreshToken({ id: newUser.id });
+    await newUser.update({ refreshToken });
+
+    const accessToken = generateAccessToken({ id: newUser.id });
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        phone: newUser.phone,
+      },
+      refreshToken,
+      accessToken,
+    });
+  } catch (error) {
+    console.error('Error registering user:', error);
+    res.status(500).json({ message: 'Registration error', error: error.message });
+  }
+};
+
+
+
+export default { register, login, refreshToken, logout, getAllUsers, assignAdminRole, userDashboard, adminDashboard  };
+" and my protectedRoute "import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
+const ProtectedRoute = ({ children, roleRequired }) => {
+  const { isAuthenticated, user } = useAuth();
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Check for required role
+  if (roleRequired && user?.role !== roleRequired) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+export default ProtectedRoute;"  and  my frontend login "import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { AiFillEye, AiFillEyeInvisible } from 'react-icons/ai';
+
+const Login = () => {
+    const [values, setValues] = useState({
+        email: '',
+        password: ''
+    });
+    const [showPassword, setShowPassword] = useState(false);
+    const navigate = useNavigate();
+
+    const handleChanges = (e) => {
+        setValues({ ...values, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await axios.post('http://localhost:4001/api/auth/login', values);
+            const { accessToken, refreshToken, user, redirectUrl } = response.data;
+            console.log(redirectUrl);
+            console.log(localStorage.getItem('accessToken'));
+
+            // Save tokens and user ID in local storage
+            localStorage.setItem('accessToken', accessToken);
+            localStorage.setItem('refreshToken', refreshToken);
+            localStorage.setItem('userId', user.id);
+
+            // Redirect based on the user's role URL
+            navigate(redirectUrl);
+        } catch (error) {
+            console.error('Login failed:', error.response?.data?.message);
+        }
+    };
+
+    // Function to get a new access token if expired
+    const refreshAccessToken = async () => {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token available');
+
+        const response = await axios.post('http://localhost:4001/api/auth/refresh-token', { token: refreshToken });
+        localStorage.setItem('accessToken', response.data.accessToken);
+    };
+
+    // Axios interceptor to automatically refresh token
+    axios.interceptors.response.use(
+        (response) => response,
+        async (error) => {
+            if (error.response.status === 401 && !error.config._retry) {
+                error.config._retry = true;
+                await refreshAccessToken();
+                error.config.headers['Authorization'] = `Bearer ${localStorage.getItem('accessToken')}`;
+                return axios(error.config);
+            }
+            return Promise.reject(error);
+        }
+    );
+
+    // Toggle password visibility
+    const togglePasswordVisibility = () => {
+        setShowPassword((prevShowPassword) => !prevShowPassword);
+    };
+
+    return (
+        <div className='shadow-lg px-8 py-5 border w-[30%] bg-white text-black'>
+            <h2 className='text-lg font-bold mb-4'>Login</h2>
+            <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                    <label htmlFor="email" className='block text-gray-700'>Email</label>
+                    <input
+                        type="email"
+                        placeholder='Enter Email'
+                        className='w-full px-3 py-2 border'
+                        name="email"
+                        onChange={handleChanges}
+                    />
+                </div>
+                <div className="mb-4 relative">
+                    <label htmlFor="password" className='block text-gray-700'>Password</label>
+                    <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder='Enter Password'
+                        className='w-full px-3 py-2 border pr-10'
+                        name="password"
+                        onChange={handleChanges}
+                    />
+                    <span
+                        onClick={togglePasswordVisibility}
+                        className='absolute right-3 top-10 transform -translate-y-1/2 cursor-pointer text-gray-500'
+                    >
+                        {showPassword ? <AiFillEyeInvisible /> : <AiFillEye />}
+                    </span>
+                </div>
+                <button className="w-full bg-green-600 text-white py-2">Submit</button>
+            </form>
+            <div className="text-center">
+                <span>Don't Have Account?</span>
+                <Link to='/register' className='text-blue-500'>Signup</Link>
+            </div>
+        </div>
+    );
+};
+
+export default Login;" if you need more information please tell me to provide

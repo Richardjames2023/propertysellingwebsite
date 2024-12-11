@@ -1,7 +1,7 @@
 // models/Order.js
 import { DataTypes } from 'sequelize';
 import db from '../config/db.js';
-import User from './User.js';
+import User from '.models/User.js';
 import Property from './Property.js';
 
 const Order = db.define('Order', {

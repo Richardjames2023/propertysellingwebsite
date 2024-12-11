@@ -26,7 +26,7 @@ const NavBar = () => {
     <nav className="bg-white relative pt-4 pb-4 shadow-[0px_12px_36px_rgba(105,124,170,0.08)] top-0 w-full z-10">
       <div className="container mx-auto flex justify-between items-center">
         {/* <img src={} className="logo" alt="" /> */}
-        <h1 className="text-black text-2xl">RageMedia<span className="text-green-500 font-bold">Properties</span></h1>
+        <h1 className="text-black text-2xl">Lekki<span className="text-green-500 font-bold">Garden</span></h1>
 
         {/* Mobile Menu Icon */}
         <div className="lg:hidden">
